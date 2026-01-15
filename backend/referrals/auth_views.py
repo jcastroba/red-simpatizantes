@@ -4,13 +4,17 @@ from rest_framework import status, permissions
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.utils import timezone
+from decouple import config
+import resend
 from .models import Sympathizer
+
+# Configure Resend
+resend.api_key = config('RESEND_API_KEY', default='')
 
 class CheckUserView(APIView):
     def post(self, request):
@@ -73,15 +77,27 @@ class RequestPasswordSetupView(APIView):
 
             print(f"\n\n--- PASSWORD SETUP LINK ---\n{link}\n---------------------------\n")
 
-            send_mail(
-                'Configura tu contraseña - Red de Simpatizantes',
-                f'Hola {sympathizer.nombres},\n\nHaz click en el siguiente enlace para configurar tu contraseña:\n\n{link}\n\nEste enlace expira en 24 horas.\n\nSi no solicitaste este correo, puedes ignorarlo.',
-                settings.DEFAULT_FROM_EMAIL,
-                [sympathizer.email],
-                fail_silently=False,
-            )
-            
-            return Response({'message': 'Email sent'})
+            # Send email using Resend
+            try:
+                resend.emails.send({
+                    "from": "Red de Simpatizantes <onboarding@resend.dev>",
+                    "to": [sympathizer.email],
+                    "subject": "Configura tu contraseña - Red de Simpatizantes",
+                    "html": f"""
+                        <h2>Hola {sympathizer.nombres},</h2>
+                        <p>Haz click en el siguiente enlace para configurar tu contraseña:</p>
+                        <p><a href="{link}" style="background-color: #6B5B95; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Configurar Contraseña</a></p>
+                        <p>O copia este enlace en tu navegador:</p>
+                        <p>{link}</p>
+                        <p>Este enlace expira en 24 horas.</p>
+                        <p>Si no solicitaste este correo, puedes ignorarlo.</p>
+                    """
+                })
+            except Exception as e:
+                print(f"Error sending email: {e}")
+                return Response({'error': 'Error al enviar el correo'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            return Response({'message': 'Email enviado'})
             
         except Sympathizer.DoesNotExist:
             return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
