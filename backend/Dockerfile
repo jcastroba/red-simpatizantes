@@ -23,6 +23,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . .
 
+# Make start script executable
+RUN chmod +x start.sh
+
 # Collect static files
 RUN python manage.py collectstatic --noinput || true
 
@@ -34,5 +37,5 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Run gunicorn (uses PORT env variable from Railway, defaults to 8000)
-CMD gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 3 core.wsgi:application
+# Run start script (migrations + gunicorn)
+CMD ["./start.sh"]
