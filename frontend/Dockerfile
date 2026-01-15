@@ -15,20 +15,19 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Production stage with Nginx
-FROM nginx:alpine
+# Production stage - use same node image with serve
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install serve globally
+RUN npm install -g serve
 
 # Copy built files from build stage
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /app/dist ./dist
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf.template
+# Expose port
+EXPOSE 3000
 
-# Expose port (Railway uses dynamic PORT)
-EXPOSE 80
-
-# Default port if not set
-ENV PORT=80
-
-# Replace PORT in nginx config and start
-CMD ["/bin/sh", "-c", "sed -i \"s/\\${PORT}/$PORT/g\" /etc/nginx/conf.d/default.conf.template && mv /etc/nginx/conf.d/default.conf.template /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+# Serve the static files - serve reads PORT env automatically
+CMD ["serve", "dist", "-s"]
