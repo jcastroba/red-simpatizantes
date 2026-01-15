@@ -21,11 +21,14 @@ FROM nginx:alpine
 # Copy built files from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx configuration template
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
-# Expose port
+# Expose port (Railway uses dynamic PORT)
 EXPOSE 80
 
-# Run nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Default port if not set
+ENV PORT=80
+
+# Use envsubst to replace $PORT and start nginx
+CMD ["/bin/sh", "-c", "envsubst '${PORT}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]

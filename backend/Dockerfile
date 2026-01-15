@@ -34,5 +34,5 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Run gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "core.wsgi:application"]
+# Run gunicorn (uses PORT env variable from Railway, defaults to 8000)
+CMD gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 3 core.wsgi:application
