@@ -7,4 +7,4 @@ echo "Loading initial data..."
 python populate_locations.py || true
 
 echo "Starting server..."
-exec gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 3 core.wsgi:application
+exec gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 3 --timeout 120 core.wsgi:application
