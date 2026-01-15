@@ -7,11 +7,13 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "serve dist -s -l $PORT"
   },
   "dependencies": {
     "@types/d3-force": "^3.0.10",
     "axios": "^1.13.2",
+    "serve": "^14.2.4",
     "d3-force": "^3.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
