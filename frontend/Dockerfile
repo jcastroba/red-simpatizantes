@@ -29,5 +29,5 @@ COPY --from=build /app/dist ./dist
 # Expose port
 EXPOSE 3000
 
-# Serve the static files - serve reads PORT env automatically
-CMD ["serve", "dist", "-s"]
+# Serve the static files on the PORT provided by Railway
+CMD ["sh", "-c", "serve dist -s -l tcp://0.0.0.0:${PORT:-3000}"]
