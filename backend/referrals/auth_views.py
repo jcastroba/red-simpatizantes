@@ -79,7 +79,7 @@ class RequestPasswordSetupView(APIView):
 
             # Send email using Resend
             try:
-                resend.emails.send({
+                resend.Emails.send({
                     "from": "Red de Simpatizantes <onboarding@resend.dev>",
                     "to": [sympathizer.email],
                     "subject": "Configura tu contraseña - Red de Simpatizantes",
