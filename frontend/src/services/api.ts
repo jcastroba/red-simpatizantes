@@ -1,7 +1,8 @@
 /**
  * Centralized API service with typed methods and error handling.
  */
-import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import axios, { AxiosError } from 'axios';
+import type { AxiosRequestConfig } from 'axios';
 import { API_URL } from '../config';
 import type {
   LoginResponse,

@@ -2,7 +2,8 @@
  * Authentication context for managing user and admin sessions.
  * Provides centralized auth state, token management, and session expiration handling.
  */
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import axios, { AxiosError } from 'axios';
 import { API_URL } from '../config';
 import type { User, AdminUser } from '../types/api';

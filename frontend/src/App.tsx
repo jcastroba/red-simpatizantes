@@ -21,7 +21,6 @@ type View = 'menu' | 'register' | 'check' | 'login' | 'forgot-password' | 'set-p
 function AppContent() {
   const {
     token,
-    user,
     isAuthenticated,
     login,
     logout,
