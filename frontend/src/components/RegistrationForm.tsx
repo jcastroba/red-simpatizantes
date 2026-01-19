@@ -215,9 +215,9 @@ const RegistrationForm = ({ onBack }: { onBack?: () => void }) => {
   };
 
   return (
-    <div className="bg-secondary min-h-screen flex items-center justify-center p-2 sm:p-4 font-sans relative">
+    <div className="bg-secondary min-h-screen flex items-start sm:items-center justify-center p-2 sm:p-4 font-sans relative overflow-auto">
 
-      <Y2KWindow title="Registro" onBack={onBack} className="w-full max-w-3xl">
+      <Y2KWindow title="Registro" onBack={onBack} isStatic={true} className="w-full max-w-3xl my-2 sm:my-4">
             {isReferralValid ? (
             <div className="bg-pearl-aqua/20 border-2 border-pearl-aqua text-black p-3 sm:p-5 mb-4 sm:mb-8 shadow-sm" role="alert">
                 <p className="font-bold text-base sm:text-lg">Bienvenido!</p>
