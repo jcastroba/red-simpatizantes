@@ -27,7 +27,7 @@ class SympathizerSerializer(serializers.ModelSerializer):
             'id', 'nombres', 'apellidos', 'cedula', 'email', 'phone', 'sexo',
             'department_id', 'municipio_id', 'department_name', 'municipio_name',
             'referral_code', 'referrer', 'referrer_name', 'created_at', 'activated_at', 'referrer_code',
-            'link_enabled', 'is_active', 'has_account'
+            'link_enabled', 'is_suspended', 'is_active', 'has_account'
         ]
         read_only_fields = ['referral_code', 'created_at', 'activated_at', 'referrer', 'department_name', 'municipio_name', 'referrer_name']
 

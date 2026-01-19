@@ -6,9 +6,10 @@ import { API_URL } from '../config';
 interface LoginProps {
   onBack: () => void;
   onLoginSuccess: (token: string, user: any) => void;
+  onForgotPassword?: () => void;
 }
 
-const Login = ({ onBack, onLoginSuccess }: LoginProps) => {
+const Login = ({ onBack, onLoginSuccess, onForgotPassword }: LoginProps) => {
   const [step, setStep] = useState<'check' | 'password' | 'setup'>('check');
   const [cedula, setCedula] = useState('');
   const [password, setPassword] = useState('');
@@ -157,6 +158,15 @@ const Login = ({ onBack, onLoginSuccess }: LoginProps) => {
               >
                 {loading ? 'Ingresando...' : 'Ingresar'}
               </button>
+              {onForgotPassword && (
+                <button
+                  type="button"
+                  onClick={onForgotPassword}
+                  className="w-full text-sm text-primary hover:text-primary/80 font-medium mt-2"
+                >
+                  ¿Olvidaste tu contrasena?
+                </button>
+              )}
             </form>
           )}
 
