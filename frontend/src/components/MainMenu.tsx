@@ -8,24 +8,24 @@ interface MainMenuProps {
 
 const MainMenu = ({ onRegister, onCheckLink, onLogin }: MainMenuProps) => {
   return (
-    <div className="bg-secondary min-h-screen flex items-center justify-center p-4 font-sans relative">
-      <Y2KWindow title="" onClose={undefined} className="max-w-md">
-        <div className="flex flex-col gap-6">
+    <div className="bg-secondary min-h-screen flex items-center justify-center p-2 sm:p-4 font-sans relative">
+      <Y2KWindow title="" onClose={undefined} className="max-w-md w-full mx-2 sm:mx-0">
+        <div className="flex flex-col gap-3 sm:gap-6">
           <button
             onClick={onRegister}
-            className="w-full rounded-full py-4 px-6 text-lg font-black text-primary bg-transparent border-2 border-primary hover:bg-primary hover:text-white shadow-md uppercase tracking-widest transition-transform active:scale-95"
+            className="w-full rounded-full py-3 sm:py-4 px-4 sm:px-6 text-sm sm:text-lg font-black text-primary bg-transparent border-2 border-primary hover:bg-primary hover:text-white shadow-md uppercase tracking-wider sm:tracking-widest transition-transform active:scale-95"
           >
             Registrar y crear red
           </button>
           <button
             onClick={onCheckLink}
-            className="w-full rounded-full py-4 px-6 text-lg font-black text-primary bg-transparent border-2 border-primary hover:bg-primary hover:text-white shadow-md uppercase tracking-widest transition-transform active:scale-95"
+            className="w-full rounded-full py-3 sm:py-4 px-4 sm:px-6 text-sm sm:text-lg font-black text-primary bg-transparent border-2 border-primary hover:bg-primary hover:text-white shadow-md uppercase tracking-wider sm:tracking-widest transition-transform active:scale-95"
           >
             Revisar link de referidos
           </button>
           <button
             onClick={onLogin}
-            className="w-full rounded-full py-4 px-6 text-lg font-black text-primary bg-transparent border-2 border-primary hover:bg-primary hover:text-white shadow-md uppercase tracking-widest transition-transform active:scale-95"
+            className="w-full rounded-full py-3 sm:py-4 px-4 sm:px-6 text-sm sm:text-lg font-black text-primary bg-transparent border-2 border-primary hover:bg-primary hover:text-white shadow-md uppercase tracking-wider sm:tracking-widest transition-transform active:scale-95"
           >
             Login
           </button>

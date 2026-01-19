@@ -51,16 +51,19 @@ class Sympathizer(models.Model):
     nombres = models.CharField(max_length=100)
     apellidos = models.CharField(max_length=100)
     cedula = models.CharField(max_length=20, unique=True, db_index=True)
-    email = models.EmailField(unique=True, null=True, blank=True, db_index=True)
+    email = models.EmailField(null=True, blank=True, db_index=True)  # Email opcional, no único
     phone = models.CharField(max_length=15)
     sexo = models.CharField(max_length=1, choices=SEX_CHOICES)
 
-    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True)
-    municipio = models.ForeignKey(Municipality, on_delete=models.SET_NULL, null=True)
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
+    municipio = models.ForeignKey(Municipality, on_delete=models.SET_NULL, null=True, blank=True)
 
     referral_code = models.CharField(max_length=8, default=generate_referral_code, unique=True, editable=False, db_index=True)
     referrer = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='referrals')
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name='sympathizer')
+
+    # Campo para identificar la red/político al que pertenece (solo para roots)
+    network_name = models.CharField(max_length=100, null=True, blank=True, help_text="Nombre de la red/político (solo para fundadores)")
 
     link_enabled = models.BooleanField(default=True)
     is_suspended = models.BooleanField(default=False, help_text="Si está suspendido, no puede acceder al sistema")
@@ -101,3 +104,20 @@ class Sympathizer(models.Model):
             count += 1
             to_visit.extend(list(current.referrals.all()))
         return count
+
+    def get_root(self):
+        """Get the root (founder) of this sympathizer's network."""
+        current = self
+        while current.referrer:
+            current = current.referrer
+        return current
+
+    def get_network_name(self):
+        """Get the network name from the root of the chain."""
+        root = self.get_root()
+        return root.network_name or f"Red de {root.full_name}"
+
+    @property
+    def is_root(self):
+        """Check if this sympathizer is a root (no referrer)."""
+        return self.referrer is None

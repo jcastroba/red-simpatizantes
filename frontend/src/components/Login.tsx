@@ -69,25 +69,25 @@ const Login = ({ onBack, onLoginSuccess, onForgotPassword }: LoginProps) => {
   };
 
   return (
-    <div className="bg-secondary min-h-screen flex items-center justify-center p-4 font-sans relative">
-      <Y2KWindow title="Login" onBack={onBack} className="max-w-md">
-        <div className="space-y-6">
+    <div className="bg-secondary min-h-screen flex items-center justify-center p-2 sm:p-4 font-sans relative">
+      <Y2KWindow title="Login" onBack={onBack} className="max-w-md w-full mx-2 sm:mx-0">
+        <div className="space-y-4 sm:space-y-6">
           {step === 'check' && (
-            <form onSubmit={handleCheckUser} className="space-y-4">
+            <form onSubmit={handleCheckUser} className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-sm font-bold text-black uppercase mb-1">Documento de Identidad</label>
+                <label className="block text-xs sm:text-sm font-bold text-black uppercase mb-1">Documento de Identidad</label>
                 <input
                   type="text"
                   value={cedula}
                   onChange={(e) => setCedula(e.target.value)}
-                  className="block w-full bg-white text-black border-2 border-black/20 focus:border-dark-periwinkle focus:ring-0 sm:text-sm p-3 shadow-inner"
+                  className="block w-full bg-white text-black border-2 border-black/20 focus:border-dark-periwinkle focus:ring-0 text-sm p-2 sm:p-3 shadow-inner"
                   required
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-full py-3 px-4 border-2 border-primary text-lg font-black text-white bg-primary hover:brightness-110 shadow-md uppercase tracking-widest transition-transform active:scale-95 disabled:opacity-50"
+                className="w-full rounded-full py-2 sm:py-3 px-4 border-2 border-primary text-sm sm:text-lg font-black text-white bg-primary hover:brightness-110 shadow-md uppercase tracking-wider sm:tracking-widest transition-transform active:scale-95 disabled:opacity-50"
               >
                 {loading ? 'Verificando...' : 'Continuar'}
               </button>
@@ -95,38 +95,38 @@ const Login = ({ onBack, onLoginSuccess, onForgotPassword }: LoginProps) => {
           )}
 
           {step === 'setup' && (
-            <div className="space-y-4 text-center">
+            <div className="space-y-3 sm:space-y-4 text-center">
               {!message ? (
                 <>
-                  <p className="font-medium">Este usuario no tiene una contraseña configurada.</p>
-                  <p className="text-sm text-black/70">Enviaremos un enlace a <span className="font-bold">{email}</span> para que puedas crear una.</p>
+                  <p className="font-medium text-sm sm:text-base">Este usuario no tiene una contraseña configurada.</p>
+                  <p className="text-xs sm:text-sm text-black/70">Enviaremos un enlace a <span className="font-bold">{email}</span> para que puedas crear una.</p>
                   <button
                     onClick={handleRequestSetup}
                     disabled={loading}
-                    className="w-full rounded-full py-3 px-4 border-2 border-primary text-lg font-black text-white bg-primary hover:brightness-110 shadow-md uppercase tracking-widest transition-transform active:scale-95 disabled:opacity-50"
+                    className="w-full rounded-full py-2 sm:py-3 px-4 border-2 border-primary text-sm sm:text-lg font-black text-white bg-primary hover:brightness-110 shadow-md uppercase tracking-wider sm:tracking-widest transition-transform active:scale-95 disabled:opacity-50"
                   >
                     {loading ? 'Enviando...' : 'Enviar Correo'}
                   </button>
                 </>
               ) : (
-                <div className="bg-pearl-aqua/20 border-2 border-pearl-aqua p-4">
-                  <p className="font-bold">{message}</p>
-                  <p className="text-xs mt-2">Revisa tu bandeja de entrada (y spam).</p>
+                <div className="bg-pearl-aqua/20 border-2 border-pearl-aqua p-3 sm:p-4">
+                  <p className="font-bold text-sm sm:text-base">{message}</p>
+                  <p className="text-[10px] sm:text-xs mt-2">Revisa tu bandeja de entrada (y spam).</p>
                 </div>
               )}
             </div>
           )}
 
           {step === 'password' && (
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-sm font-bold text-black uppercase mb-1">Documento de Identidad</label>
+                <label className="block text-xs sm:text-sm font-bold text-black uppercase mb-1">Documento de Identidad</label>
                 <div className="relative">
                   <input
                     type="text"
                     value={cedula}
                     readOnly
-                    className="block w-full bg-black/5 text-black border-2 border-black/10 sm:text-sm p-3 pr-20"
+                    className="block w-full bg-black/5 text-black border-2 border-black/10 text-sm p-2 sm:p-3 pr-16 sm:pr-20"
                   />
                   <button
                     type="button"
@@ -135,26 +135,26 @@ const Login = ({ onBack, onLoginSuccess, onForgotPassword }: LoginProps) => {
                       setPassword('');
                       setError('');
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-primary hover:text-primary/80 uppercase"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] sm:text-xs font-bold text-primary hover:text-primary/80 uppercase"
                   >
                     Cambiar
                   </button>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-bold text-black uppercase mb-1">Contraseña</label>
+                <label className="block text-xs sm:text-sm font-bold text-black uppercase mb-1">Contraseña</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full bg-white text-black border-2 border-black/20 focus:border-dark-periwinkle focus:ring-0 sm:text-sm p-3 shadow-inner"
+                  className="block w-full bg-white text-black border-2 border-black/20 focus:border-dark-periwinkle focus:ring-0 text-sm p-2 sm:p-3 shadow-inner"
                   required
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-full py-3 px-4 border-2 border-primary text-lg font-black text-white bg-primary hover:brightness-110 shadow-md uppercase tracking-widest transition-transform active:scale-95 disabled:opacity-50"
+                className="w-full rounded-full py-2 sm:py-3 px-4 border-2 border-primary text-sm sm:text-lg font-black text-white bg-primary hover:brightness-110 shadow-md uppercase tracking-wider sm:tracking-widest transition-transform active:scale-95 disabled:opacity-50"
               >
                 {loading ? 'Ingresando...' : 'Ingresar'}
               </button>
@@ -162,7 +162,7 @@ const Login = ({ onBack, onLoginSuccess, onForgotPassword }: LoginProps) => {
                 <button
                   type="button"
                   onClick={onForgotPassword}
-                  className="w-full text-sm text-primary hover:text-primary/80 font-medium mt-2"
+                  className="w-full text-xs sm:text-sm text-primary hover:text-primary/80 font-medium mt-2"
                 >
                   ¿Olvidaste tu contrasena?
                 </button>
@@ -171,7 +171,7 @@ const Login = ({ onBack, onLoginSuccess, onForgotPassword }: LoginProps) => {
           )}
 
           {error && (
-            <div className="bg-white/70 border-2 border-primary text-primary p-3 text-center font-bold uppercase text-sm">
+            <div className="bg-white/70 border-2 border-primary text-primary p-2 sm:p-3 text-center font-bold uppercase text-xs sm:text-sm">
               {error}
             </div>
           )}

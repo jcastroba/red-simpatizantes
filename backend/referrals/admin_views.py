@@ -71,11 +71,15 @@ class AdminNetworkListView(APIView):
                 'id': root.id,
                 'name': f"{root.nombres} {root.apellidos}",
                 'cedula': root.cedula,
+                'phone': root.phone,
+                'email': root.email,
                 'referral_code': root.referral_code,
+                'network_name': root.network_name or f"Red de {root.nombres} {root.apellidos}",
                 'created_at': root.created_at,
                 'link_enabled': root.link_enabled,
                 'is_suspended': root.is_suspended,
-                'direct_referrals': root.direct_referrals_count
+                'direct_referrals': root.direct_referrals_count,
+                'total_network_size': root.get_total_network_size()
             })
 
         return Response(data)
@@ -95,25 +99,32 @@ class AdminNetworkListView(APIView):
             if Sympathizer.objects.filter(cedula=data['cedula']).exists():
                 return Response({'error': 'La cedula ya esta registrada'}, status=status.HTTP_400_BAD_REQUEST)
 
+            # Get email, converting empty string to None
+            email = data.get('email')
+            if email == '':
+                email = None
+
             sympathizer = Sympathizer.objects.create(
                 nombres=data['nombres'],
                 apellidos=data['apellidos'],
                 cedula=data['cedula'],
                 phone=data['phone'],
-                email=data.get('email'),
+                email=email,
                 sexo=data['sexo'],
                 department_id=data.get('department_id'),
                 municipio_id=data.get('municipio_id'),
+                network_name=data.get('network_name'),  # Nombre de la red/político
                 referrer=None,
                 link_enabled=True
             )
 
-            logger.info(f"New network created by admin: {sympathizer.cedula[:4]}***")
+            logger.info(f"New network created by admin: {sympathizer.cedula[:4]}*** - Network: {sympathizer.network_name}")
 
             return Response({
                 'message': 'Red creada exitosamente',
                 'referral_code': sympathizer.referral_code,
-                'id': sympathizer.id
+                'id': sympathizer.id,
+                'network_name': sympathizer.network_name or f"Red de {sympathizer.full_name}"
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:

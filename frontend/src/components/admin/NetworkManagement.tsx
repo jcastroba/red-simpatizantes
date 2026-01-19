@@ -17,7 +17,8 @@ const NetworkManagement = ({ token }: NetworkManagementProps) => {
     cedula: '',
     phone: '',
     email: '',
-    sexo: 'M'
+    sexo: 'M',
+    network_name: ''
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -49,7 +50,7 @@ const NetworkManagement = ({ token }: NetworkManagementProps) => {
       });
       setSuccess('Red creada exitosamente');
       setShowCreate(false);
-      setFormData({ nombres: '', apellidos: '', cedula: '', phone: '', email: '', sexo: 'M' });
+      setFormData({ nombres: '', apellidos: '', cedula: '', phone: '', email: '', sexo: 'M', network_name: '' });
       fetchNetworks();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al crear la red');
@@ -57,87 +58,103 @@ const NetworkManagement = ({ token }: NetworkManagementProps) => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-black text-primary uppercase">Gestión de Redes</h2>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <h2 className="text-xl sm:text-3xl font-black text-primary uppercase">Gestión de Redes</h2>
         <button
           onClick={() => setShowCreate(true)}
-          className="bg-primary text-white font-bold px-6 py-3 border-2 border-transparent hover:bg-white hover:text-primary hover:border-primary transition-colors uppercase shadow-md"
+          className="bg-primary text-white font-bold px-4 sm:px-6 py-2 sm:py-3 border-2 border-transparent hover:bg-white hover:text-primary hover:border-primary transition-colors uppercase shadow-md text-sm sm:text-base w-full sm:w-auto"
         >
           + Nueva Red
         </button>
       </div>
 
       {showCreate && (
-        <Y2KWindow title="Crear Nueva Red (Usuario Fundador)" onClose={() => setShowCreate(false)} className="max-w-2xl mx-auto mb-8">
+        <Y2KWindow title="Crear Nueva Red" onClose={() => setShowCreate(false)} className="max-w-2xl mx-auto mb-8">
           <form onSubmit={handleCreate} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-bold text-black uppercase mb-1">Nombres</label>
-                <input
-                  type="text"
-                  value={formData.nombres}
-                  onChange={e => setFormData({...formData, nombres: e.target.value})}
-                  className="block w-full bg-white border-2 border-black/20 p-2"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-black uppercase mb-1">Apellidos</label>
-                <input
-                  type="text"
-                  value={formData.apellidos}
-                  onChange={e => setFormData({...formData, apellidos: e.target.value})}
-                  className="block w-full bg-white border-2 border-black/20 p-2"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-black uppercase mb-1">Cédula</label>
-                <input
-                  type="text"
-                  value={formData.cedula}
-                  onChange={e => setFormData({...formData, cedula: e.target.value})}
-                  className="block w-full bg-white border-2 border-black/20 p-2"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-black uppercase mb-1">Teléfono</label>
-                <input
-                  type="text"
-                  value={formData.phone}
-                  onChange={e => setFormData({...formData, phone: e.target.value})}
-                  className="block w-full bg-white border-2 border-black/20 p-2"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-black uppercase mb-1">Email (Opcional)</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={e => setFormData({...formData, email: e.target.value})}
-                  className="block w-full bg-white border-2 border-black/20 p-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-black uppercase mb-1">Sexo</label>
-                <select
-                  value={formData.sexo}
-                  onChange={e => setFormData({...formData, sexo: e.target.value})}
-                  className="block w-full bg-white border-2 border-black/20 p-2"
-                >
-                  <option value="M">Masculino</option>
-                  <option value="F">Femenino</option>
-                  <option value="O">Otro</option>
-                </select>
+            {/* Network Name - Full Width */}
+            <div>
+              <label className="block text-xs sm:text-sm font-bold text-black uppercase mb-1">Nombre de la Red / Político</label>
+              <input
+                type="text"
+                value={formData.network_name}
+                onChange={e => setFormData({...formData, network_name: e.target.value})}
+                className="block w-full bg-white border-2 border-black/20 p-2 text-sm"
+                placeholder="Ej: Red de Juan Pérez, Campaña Norte..."
+              />
+              <p className="text-xs text-black/50 mt-1">Nombre identificador de esta red (opcional)</p>
+            </div>
+
+            <div className="border-t border-black/10 pt-4">
+              <p className="text-xs font-bold text-black/60 uppercase mb-3">Datos del Fundador</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <label className="block text-xs sm:text-sm font-bold text-black uppercase mb-1">Nombres</label>
+                  <input
+                    type="text"
+                    value={formData.nombres}
+                    onChange={e => setFormData({...formData, nombres: e.target.value})}
+                    className="block w-full bg-white border-2 border-black/20 p-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-bold text-black uppercase mb-1">Apellidos</label>
+                  <input
+                    type="text"
+                    value={formData.apellidos}
+                    onChange={e => setFormData({...formData, apellidos: e.target.value})}
+                    className="block w-full bg-white border-2 border-black/20 p-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-bold text-black uppercase mb-1">Cédula</label>
+                  <input
+                    type="text"
+                    value={formData.cedula}
+                    onChange={e => setFormData({...formData, cedula: e.target.value})}
+                    className="block w-full bg-white border-2 border-black/20 p-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-bold text-black uppercase mb-1">Teléfono</label>
+                  <input
+                    type="text"
+                    value={formData.phone}
+                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                    className="block w-full bg-white border-2 border-black/20 p-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-bold text-black uppercase mb-1">Email (Opcional)</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={e => setFormData({...formData, email: e.target.value})}
+                    className="block w-full bg-white border-2 border-black/20 p-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-bold text-black uppercase mb-1">Sexo</label>
+                  <select
+                    value={formData.sexo}
+                    onChange={e => setFormData({...formData, sexo: e.target.value})}
+                    className="block w-full bg-white border-2 border-black/20 p-2 text-sm"
+                  >
+                    <option value="M">Masculino</option>
+                    <option value="F">Femenino</option>
+                    <option value="O">Otro</option>
+                  </select>
+                </div>
               </div>
             </div>
-            
+
             {error && <div className="text-racing-red font-bold text-sm">{error}</div>}
-            
-            <button type="submit" className="w-full bg-primary text-white font-bold py-3 uppercase hover:brightness-110">
+
+            <button type="submit" className="w-full bg-primary text-white font-bold py-3 uppercase hover:brightness-110 text-sm sm:text-base">
               Crear Red
             </button>
           </form>
@@ -154,38 +171,65 @@ const NetworkManagement = ({ token }: NetworkManagementProps) => {
         <div className="text-center py-8">
           <p className="text-black/60 font-bold uppercase">Cargando redes...</p>
         </div>
+      ) : networks.length === 0 ? (
+        <div className="text-center py-8 bg-white/50 border-2 border-dashed border-black/20">
+          <p className="text-black/60 font-bold uppercase">No hay redes creadas</p>
+          <p className="text-sm text-black/40 mt-2">Crea la primera red con el botón "Nueva Red"</p>
+        </div>
       ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {networks.map(network => (
-          <Y2KWindow key={network.id} title={network.name} isStatic={true}>
-            <div className="space-y-3">
+          <Y2KWindow key={network.id} title={network.network_name || network.name} isStatic={true}>
+            <div className="space-y-2 sm:space-y-3">
+              {/* Network Stats */}
+              <div className="flex justify-between items-center bg-primary/10 p-2 -mx-2 sm:-mx-4 -mt-2">
+                <div className="text-center flex-1">
+                  <p className="text-2xl sm:text-3xl font-black text-primary">{network.direct_referrals}</p>
+                  <p className="text-[10px] sm:text-xs text-black/60 uppercase font-bold">Directos</p>
+                </div>
+                <div className="w-px h-10 bg-black/10"></div>
+                <div className="text-center flex-1">
+                  <p className="text-2xl sm:text-3xl font-black text-primary">{network.total_network_size}</p>
+                  <p className="text-[10px] sm:text-xs text-black/60 uppercase font-bold">Total Red</p>
+                </div>
+              </div>
+
               <div className="flex justify-between border-b border-black/10 pb-2">
-                <span className="text-xs font-bold text-black/60 uppercase">Fundador</span>
-                <span className="font-bold">{network.name}</span>
+                <span className="text-[10px] sm:text-xs font-bold text-black/60 uppercase">Fundador</span>
+                <span className="font-bold text-sm">{network.name}</span>
               </div>
               <div className="flex justify-between border-b border-black/10 pb-2">
-                <span className="text-xs font-bold text-black/60 uppercase">Cédula</span>
-                <span>{network.cedula}</span>
+                <span className="text-[10px] sm:text-xs font-bold text-black/60 uppercase">Cédula</span>
+                <span className="text-sm">{network.cedula}</span>
               </div>
               <div className="flex justify-between border-b border-black/10 pb-2">
-                <span className="text-xs font-bold text-black/60 uppercase">Código</span>
-                <span className="font-mono bg-black/5 px-2">{network.referral_code}</span>
+                <span className="text-[10px] sm:text-xs font-bold text-black/60 uppercase">Teléfono</span>
+                <span className="text-sm">{network.phone || 'N/A'}</span>
               </div>
               <div className="flex justify-between border-b border-black/10 pb-2">
-                <span className="text-xs font-bold text-black/60 uppercase">Referidos Directos</span>
-                <span className="font-bold text-primary">{network.direct_referrals}</span>
+                <span className="text-[10px] sm:text-xs font-bold text-black/60 uppercase">Estado</span>
+                <div className="flex gap-1">
+                  <span className={`px-1.5 py-0.5 text-[10px] font-bold uppercase ${network.link_enabled ? 'bg-spring-green/20 text-green-800' : 'bg-racing-red/20 text-red-800'}`}>
+                    Link {network.link_enabled ? 'ON' : 'OFF'}
+                  </span>
+                  {network.is_suspended && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase bg-racing-red/20 text-red-800">
+                      Suspendido
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="pt-2">
-                <p className="text-xs font-bold text-black/60 uppercase mb-1">Link de Referido</p>
+                <p className="text-[10px] sm:text-xs font-bold text-black/60 uppercase mb-1">Link de Referido</p>
                 <div className="flex gap-2">
-                    <input 
-                        readOnly 
+                    <input
+                        readOnly
                         value={`${window.location.origin}?ref=${network.referral_code}`}
                         className="w-full text-xs p-2 bg-black/5 border border-black/10"
                     />
-                    <button 
+                    <button
                         onClick={() => navigator.clipboard.writeText(`${window.location.origin}?ref=${network.referral_code}`)}
-                        className="bg-primary text-white px-3 text-xs font-bold uppercase"
+                        className="bg-primary text-white px-2 sm:px-3 text-xs font-bold uppercase flex-shrink-0"
                     >
                         Copiar
                     </button>
