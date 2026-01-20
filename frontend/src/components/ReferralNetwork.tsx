@@ -82,18 +82,18 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
 
     // Configure forces for better initial layout
     fg.d3Force('charge', d3.forceManyBody()
-      .strength(-400)  // Strong repulsion to separate nodes
-      .distanceMax(1000)
+      .strength(-150)  // Moderate repulsion
+      .distanceMax(400)
     );
 
     fg.d3Force('collide', d3.forceCollide()
-      .radius((node: any) => getNodeSize(node) + 40)  // More padding between nodes
-      .strength(1)
+      .radius((node: any) => getNodeSize(node) + 15)  // Padding between nodes
+      .strength(0.8)
     );
 
     fg.d3Force('link')
-      ?.distance(150)  // Increase link distance
-      .strength(0.3);
+      ?.distance(80)  // Link distance
+      .strength(0.5);
 
   }, [data]);
 
@@ -113,12 +113,12 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
   };
 
   const getNodeSize = (node: Node) => {
-    const baseSize = 12;
+    const baseSize = 20;  // Larger base size for readability
     // Scale based on referrals (using square root to prevent huge nodes)
-    const size = baseSize + Math.sqrt(node.referrals_count || 0) * 3;
+    const size = baseSize + Math.sqrt(node.referrals_count || 0) * 4;
 
-    if (node.type === 'me') return Math.max(size, 16);
-    if (node.type === 'sponsor') return Math.max(size, 14);
+    if (node.type === 'me') return Math.max(size, 28);
+    if (node.type === 'sponsor') return Math.max(size, 24);
     return size;
   };
 
@@ -139,7 +139,7 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
         height={dimensions.height}
         graphData={data}
         dagMode="td"
-        dagLevelDistance={200}
+        dagLevelDistance={120}
         d3AlphaDecay={0.02}
         d3VelocityDecay={0.4}
         cooldownTicks={200}
