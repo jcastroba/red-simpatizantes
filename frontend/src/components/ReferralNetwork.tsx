@@ -38,6 +38,7 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
   const [hoverNode, setHoverNode] = useState<Node | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -65,30 +66,36 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
         resizeObserver.observe(containerRef.current);
     }
 
-    // Initial zoom to fit
-    setTimeout(() => {
-        if (graphRef.current) {
-            graphRef.current.zoomToFit(400);
-
-            // Add collision force
-            // Increased padding to prevent overlap and keep nodes distinct
-            graphRef.current.d3Force('collide', d3.forceCollide((node: any) => getNodeSize(node) + 20));
-
-            // Add charge force adjustment
-            // Reduced repulsion significantly because we are providing initial positions
-            // We want the nodes to stay relatively close to their calculated positions
-            graphRef.current.d3Force('charge').strength(-100).distanceMax(500);
-
-            // Add link force with higher strength to keep structure
-            graphRef.current.d3Force('link').strength(1);
-
-            // Optional: Add a positioning force to keep the tree centered if needed
-            // graphRef.current.d3Force('center', d3.forceCenter(0, 0).strength(0.05));
-        }
-    }, 1000);
-
     return () => resizeObserver.disconnect();
   }, []);
+
+  // Reset layout state when data changes
+  useEffect(() => {
+    setIsLayoutReady(false);
+  }, [data]);
+
+  // Configure forces when data changes
+  useEffect(() => {
+    if (!graphRef.current || !data.nodes.length) return;
+
+    const fg = graphRef.current;
+
+    // Configure forces for better initial layout
+    fg.d3Force('charge', d3.forceManyBody()
+      .strength(-400)  // Strong repulsion to separate nodes
+      .distanceMax(1000)
+    );
+
+    fg.d3Force('collide', d3.forceCollide()
+      .radius((node: any) => getNodeSize(node) + 40)  // More padding between nodes
+      .strength(1)
+    );
+
+    fg.d3Force('link')
+      ?.distance(150)  // Increase link distance
+      .strength(0.3);
+
+  }, [data]);
 
   const getNodeColor = (node: Node) => {
     if (node.type === 'me') return '#FF1053'; // Hot Fucsia
@@ -117,17 +124,30 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
 
   return (
     <div className={`relative h-full w-full overflow-hidden transition-colors duration-500 ${isFullscreen ? 'bg-black/60' : ''}`} ref={containerRef}>
+      {/* Loading overlay */}
+      {!isLayoutReady && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/90 backdrop-blur-sm">
+          <div className="text-center">
+            <div className="inline-block w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="font-bold text-primary uppercase tracking-wide">Organizando red...</p>
+          </div>
+        </div>
+      )}
       <ForceGraph2D
         ref={graphRef}
         width={dimensions.width}
         height={dimensions.height}
         graphData={data}
         dagMode="td"
-        dagLevelDistance={150} // Standard distance
-        d3AlphaDecay={0.05} // Faster decay to settle quickly on the provided layout
-        d3VelocityDecay={0.6} // High friction
-        cooldownTicks={50} // Short cooldown as we start with good positions
-        onEngineStop={() => graphRef.current.zoomToFit(400)}
+        dagLevelDistance={200}
+        d3AlphaDecay={0.02}
+        d3VelocityDecay={0.4}
+        cooldownTicks={200}
+        warmupTicks={100}
+        onEngineStop={() => {
+          graphRef.current?.zoomToFit(400, 50);
+          setIsLayoutReady(true);
+        }}
         nodeLabel={() => ''}
         nodeColor={getNodeColor}
         nodeRelSize={6}
