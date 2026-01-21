@@ -23,9 +23,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . .
 
-# Make start script executable
-RUN chmod +x start.sh
-
 # Collect static files
 RUN python manage.py collectstatic --noinput || true
 
@@ -37,5 +34,5 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Run start script (migrations + gunicorn)
-CMD ["./start.sh"]
+# Run migrations and start gunicorn
+CMD sh -c "python manage.py migrate --noinput && python populate_locations.py || true && exec gunicorn --bind 0.0.0.0:\${PORT:-8000} --workers 3 --timeout 120 core.wsgi:application"
