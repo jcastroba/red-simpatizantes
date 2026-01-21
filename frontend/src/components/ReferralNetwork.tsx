@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import * as d3 from 'd3-force';
 import Y2KWindow from './Y2KWindow';
@@ -39,6 +39,66 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLayoutReady, setIsLayoutReady] = useState(false);
+  const [collapsedNodes, setCollapsedNodes] = useState<Set<number>>(new Set());
+
+  // Build parent-child relationships
+  const childrenMap = useMemo(() => {
+    const map = new Map<number, number[]>();
+    data.links.forEach(link => {
+      const sourceId = typeof link.source === 'number' ? link.source : link.source.id;
+      const targetId = typeof link.target === 'number' ? link.target : link.target.id;
+      if (!map.has(sourceId)) map.set(sourceId, []);
+      map.get(sourceId)!.push(targetId);
+    });
+    return map;
+  }, [data.links]);
+
+  // Get all descendant IDs of a node
+  const getDescendants = useCallback((nodeId: number): Set<number> => {
+    const descendants = new Set<number>();
+    const queue = childrenMap.get(nodeId) || [];
+    while (queue.length > 0) {
+      const childId = queue.shift()!;
+      if (!descendants.has(childId)) {
+        descendants.add(childId);
+        const grandchildren = childrenMap.get(childId) || [];
+        queue.push(...grandchildren);
+      }
+    }
+    return descendants;
+  }, [childrenMap]);
+
+  // Filter visible nodes and links based on collapsed state
+  const filteredData = useMemo(() => {
+    // Find all hidden nodes (descendants of collapsed nodes)
+    const hiddenNodes = new Set<number>();
+    collapsedNodes.forEach(collapsedId => {
+      const descendants = getDescendants(collapsedId);
+      descendants.forEach(d => hiddenNodes.add(d));
+    });
+
+    const visibleNodes = data.nodes.filter(node => !hiddenNodes.has(node.id));
+    const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
+
+    const visibleLinks = data.links.filter(link => {
+      const sourceId = typeof link.source === 'number' ? link.source : link.source.id;
+      const targetId = typeof link.target === 'number' ? link.target : link.target.id;
+      return visibleNodeIds.has(sourceId) && visibleNodeIds.has(targetId);
+    });
+
+    return { nodes: visibleNodes, links: visibleLinks };
+  }, [data, collapsedNodes, getDescendants]);
+
+  // Initialize collapsed state - collapse level 2+ nodes by default
+  useEffect(() => {
+    const toCollapse = new Set<number>();
+    data.nodes.forEach(node => {
+      if ((node.level ?? 0) >= 2 && node.referrals_count > 0) {
+        toCollapse.add(node.id);
+      }
+    });
+    setCollapsedNodes(toCollapse);
+  }, [data.nodes]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -72,55 +132,83 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
   // Reset layout state when data changes
   useEffect(() => {
     setIsLayoutReady(false);
-  }, [data]);
+  }, [filteredData]);
 
   // Configure forces when data changes
   useEffect(() => {
-    if (!graphRef.current || !data.nodes.length) return;
+    if (!graphRef.current || !filteredData.nodes.length) return;
 
     const fg = graphRef.current;
 
-    // Configure forces for better initial layout
     fg.d3Force('charge', d3.forceManyBody()
-      .strength(-150)  // Moderate repulsion
-      .distanceMax(400)
+      .strength(-200)
+      .distanceMax(500)
     );
 
     fg.d3Force('collide', d3.forceCollide()
-      .radius((node: any) => getNodeSize(node) + 15)  // Padding between nodes
+      .radius((node: any) => getNodeSize(node) + 20)
       .strength(0.8)
     );
 
     fg.d3Force('link')
-      ?.distance(80)  // Link distance
+      ?.distance(100)
       .strength(0.5);
 
-  }, [data]);
+  }, [filteredData]);
 
   const getNodeColor = (node: Node) => {
-    if (node.type === 'me') return '#FF1053'; // Hot Fucsia
-    if (node.type === 'sponsor') return '#119DA4'; // Dark Cyan
+    if (node.type === 'me') return '#FF1053';
+    if (node.type === 'sponsor') return '#119DA4';
 
-    // Color by level for referrals
-    if (node.level === 1) return '#FFD700'; // Gold (Coordinators)
-    if (node.level === 2) return '#FFA500'; // Orange
-    if (node.level === 3) return '#FF4500'; // OrangeRed
-    if (node.level === 4) return '#32CD32'; // LimeGreen
-    if (node.level === 5) return '#1E90FF'; // DodgerBlue
-    if (node.level && node.level >= 6) return '#9370DB'; // MediumPurple
+    if (node.level === 1) return '#FFD700';
+    if (node.level === 2) return '#FFA500';
+    if (node.level === 3) return '#FF4500';
+    if (node.level === 4) return '#32CD32';
+    if (node.level === 5) return '#1E90FF';
+    if (node.level && node.level >= 6) return '#9370DB';
 
-    return '#15F287'; // Spring Green (Default)
+    return '#15F287';
   };
 
   const getNodeSize = (node: Node) => {
-    const baseSize = 20;  // Larger base size for readability
-    // Scale based on referrals (using square root to prevent huge nodes)
+    const baseSize = 22;
     const size = baseSize + Math.sqrt(node.referrals_count || 0) * 4;
 
-    if (node.type === 'me') return Math.max(size, 28);
-    if (node.type === 'sponsor') return Math.max(size, 24);
+    if (node.type === 'me') return Math.max(size, 30);
+    if (node.type === 'sponsor') return Math.max(size, 26);
     return size;
   };
+
+  const toggleCollapse = useCallback((nodeId: number) => {
+    setCollapsedNodes(prev => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleNodeClick = useCallback((node: any) => {
+    const hasChildren = (childrenMap.get(node.id)?.length ?? 0) > 0;
+    const canCollapse = (node.level ?? 0) >= 1 && hasChildren;
+
+    if (canCollapse) {
+      toggleCollapse(node.id);
+      // Re-fit after toggling
+      setTimeout(() => {
+        graphRef.current?.zoomToFit(400, 50);
+      }, 100);
+    } else {
+      setSelectedNode(node as Node);
+      if (graphRef.current) {
+        graphRef.current.centerAt(node.x, node.y, 1000);
+        graphRef.current.zoom(3, 1500);
+      }
+    }
+  }, [childrenMap, toggleCollapse]);
 
   return (
     <div className={`relative h-full w-full overflow-hidden transition-colors duration-500 ${isFullscreen ? 'bg-black/60' : ''}`} ref={containerRef}>
@@ -137,9 +225,9 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
         ref={graphRef}
         width={dimensions.width}
         height={dimensions.height}
-        graphData={data}
+        graphData={filteredData}
         dagMode="td"
-        dagLevelDistance={120}
+        dagLevelDistance={130}
         d3AlphaDecay={0.02}
         d3VelocityDecay={0.4}
         cooldownTicks={200}
@@ -168,21 +256,17 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
           const sourceRadius = getNodeSize(source);
           const targetRadius = getNodeSize(target);
 
-          // Normalize direction
           const nx = dx / distance;
           const ny = dy / distance;
 
-          // Arrow configuration
           const arrowLength = 6 / globalScale;
-          const padding = 2 / globalScale; // Extra padding to ensure it doesn't overlap
+          const padding = 2 / globalScale;
 
-          // Start and End points (at borders)
           const startX = source.x + nx * sourceRadius;
           const startY = source.y + ny * sourceRadius;
           const endX = target.x - nx * (targetRadius + padding);
           const endY = target.y - ny * (targetRadius + padding);
 
-          // Draw Line
           ctx.beginPath();
           ctx.moveTo(startX, startY);
           ctx.lineTo(endX, endY);
@@ -190,7 +274,6 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
           ctx.lineWidth = 1 / globalScale;
           ctx.stroke();
 
-          // Draw Arrow
           const arrowAngle = Math.atan2(ny, nx);
 
           ctx.beginPath();
@@ -209,44 +292,63 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
         }}
         nodeCanvasObject={(node: any, ctx, globalScale) => {
             const r = getNodeSize(node);
+            const hasChildren = (childrenMap.get(node.id)?.length ?? 0) > 0;
+            const isCollapsed = collapsedNodes.has(node.id);
+            const canCollapse = (node.level ?? 0) >= 1 && hasChildren;
 
-            // Draw Node (Transparent background)
+            // Draw Node circle
             ctx.beginPath();
             ctx.arc(node.x, node.y, r, 0, 2 * Math.PI, false);
-
-            // Thick colored border
             ctx.strokeStyle = getNodeColor(node);
             ctx.lineWidth = 3 / globalScale;
             ctx.stroke();
 
-            // Visibility check: if node is too small on screen, don't draw text
-            // r * globalScale is the radius in screen pixels
+            // Draw referral count badge (top-right corner)
+            if (node.referrals_count > 0) {
+              const badgeRadius = r * 0.35;
+              const badgeX = node.x + r * 0.7;
+              const badgeY = node.y - r * 0.7;
+
+              // Badge background
+              ctx.beginPath();
+              ctx.arc(badgeX, badgeY, badgeRadius, 0, 2 * Math.PI, false);
+              ctx.fillStyle = '#FF1053';
+              ctx.fill();
+
+              // Badge text
+              const badgeFontSize = badgeRadius * 1.2;
+              ctx.font = `bold ${badgeFontSize}px Sans-Serif`;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillText(String(node.referrals_count), badgeX, badgeY);
+            }
+
+            // Visibility check
             if (r * globalScale < 15) return;
 
-            // Dynamic font size based on node radius
-            // We want to fit 3 lines of text.
-            // r/3.2 provides a good balance to fill the node without overflowing
             const fontSize = r / 3.2;
-
-            // Draw Text
             ctx.textAlign = 'center';
-            // High contrast color based on background
             ctx.fillStyle = isFullscreen ? '#FFFFFF' : '#1e1b4b';
 
             // Name (Bold, Top)
             ctx.font = `bold ${fontSize}px Sans-Serif`;
             ctx.textBaseline = 'bottom';
-            ctx.fillText(node.nombres.split(' ')[0], node.x, node.y - (fontSize * 0.1));
+            ctx.fillText(node.nombres.split(' ')[0], node.x, node.y - (fontSize * 0.2));
 
             // Surname (Normal, Middle)
             ctx.font = `${fontSize}px Sans-Serif`;
             ctx.textBaseline = 'top';
             ctx.fillText(node.apellidos.split(' ')[0], node.x, node.y + (fontSize * 0.1));
 
-            // Referral Count (Larger, Bottom)
-            ctx.font = `bold ${fontSize}px Sans-Serif`;
-            ctx.fillStyle = isFullscreen ? '#FFFFFF' : '#1e1b4b'; // High contrast
-            ctx.fillText(`(${node.referrals_count})`, node.x, node.y + (fontSize * 1.3));
+            // Expand/Collapse indicator (if can collapse)
+            if (canCollapse) {
+              const indicatorSize = fontSize * 1.2;
+              ctx.font = `bold ${indicatorSize}px Sans-Serif`;
+              ctx.fillStyle = isCollapsed ? '#15F287' : '#FF1053';
+              ctx.textBaseline = 'top';
+              ctx.fillText(isCollapsed ? '+' : '−', node.x, node.y + (fontSize * 1.2));
+            }
         }}
         nodePointerAreaPaint={(node: any, color, ctx) => {
             const r = getNodeSize(node);
@@ -257,15 +359,11 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
         }}
         onNodeHover={(node) => {
             setHoverNode(node as Node || null);
-            document.body.style.cursor = node ? 'pointer' : 'default';
+            const hasChildren = node ? (childrenMap.get((node as Node).id)?.length ?? 0) > 0 : false;
+            const canCollapse = node ? ((node as Node).level ?? 0) >= 1 && hasChildren : false;
+            document.body.style.cursor = node ? (canCollapse ? 'pointer' : 'pointer') : 'default';
         }}
-        onNodeClick={(node) => {
-            setSelectedNode(node as Node);
-            if (graphRef.current) {
-                graphRef.current.centerAt(node.x, node.y, 1000);
-                graphRef.current.zoom(4, 2000);
-            }
-        }}
+        onNodeClick={handleNodeClick}
       />
 
       {/* Hover Tooltip */}
@@ -281,8 +379,20 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
             <p className="font-bold text-sm uppercase">{hoverNode.nombres} {hoverNode.apellidos}</p>
             <p className="text-xs">Tel: {hoverNode.telefono}</p>
             <p className="text-xs font-bold text-primary">Referidos: {hoverNode.referrals_count}</p>
+            {(hoverNode.level ?? 0) >= 1 && hoverNode.referrals_count > 0 && (
+              <p className="text-xs text-black/60 mt-1">
+                {collapsedNodes.has(hoverNode.id) ? '▶ Click para expandir' : '▼ Click para colapsar'}
+              </p>
+            )}
         </div>
       )}
+
+      {/* Legend */}
+      <div className="absolute top-4 left-4 bg-white/90 border-2 border-black p-2 text-xs z-10">
+        <p className="font-bold mb-1">Leyenda:</p>
+        <p><span className="text-[#15F287]">+</span> Nodo colapsado (click para expandir)</p>
+        <p><span className="text-[#FF1053]">−</span> Nodo expandido (click para colapsar)</p>
+      </div>
 
       {/* Mobile Controls */}
       <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-10">
@@ -324,6 +434,44 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
                 <line x1="12" y1="19" x2="12" y2="22" />
                 <line x1="2" y1="12" x2="5" y2="12" />
                 <line x1="19" y1="12" x2="22" y2="12" />
+            </svg>
+        </button>
+        <button
+            onClick={() => {
+                // Expand all
+                setCollapsedNodes(new Set());
+                setTimeout(() => graphRef.current?.zoomToFit(400, 50), 100);
+            }}
+            className="bg-white border-2 border-black p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
+            title="Expandir todo"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <polyline points="9 21 3 21 3 15"></polyline>
+                <line x1="21" y1="3" x2="14" y2="10"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+            </svg>
+        </button>
+        <button
+            onClick={() => {
+                // Collapse level 2+
+                const toCollapse = new Set<number>();
+                data.nodes.forEach(node => {
+                  if ((node.level ?? 0) >= 2 && node.referrals_count > 0) {
+                    toCollapse.add(node.id);
+                  }
+                });
+                setCollapsedNodes(toCollapse);
+                setTimeout(() => graphRef.current?.zoomToFit(400, 50), 100);
+            }}
+            className="bg-white border-2 border-black p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
+            title="Colapsar nivel 2+"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="4 14 10 14 10 20"></polyline>
+                <polyline points="20 10 14 10 14 4"></polyline>
+                <line x1="14" y1="10" x2="21" y2="3"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
             </svg>
         </button>
         <button
