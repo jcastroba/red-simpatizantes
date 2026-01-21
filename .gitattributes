@@ -1,0 +1,10 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Force Unix line endings for shell scripts (required for Docker/Linux)
+*.sh text eol=lf
+
+# Force Unix line endings for other common scripts
+*.bash text eol=lf
+*.py text eol=lf
+Dockerfile text eol=lf
