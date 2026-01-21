@@ -40,8 +40,9 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLayoutReady, setIsLayoutReady] = useState(false);
   const [collapsedNodes, setCollapsedNodes] = useState<Set<number>>(new Set());
+  const [graphKey, setGraphKey] = useState(0);
 
-  // Build parent-child relationships
+  // Build parent-child relationships from original data
   const childrenMap = useMemo(() => {
     const map = new Map<number, number[]>();
     data.links.forEach(link => {
@@ -56,7 +57,7 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
   // Get all descendant IDs of a node
   const getDescendants = useCallback((nodeId: number): Set<number> => {
     const descendants = new Set<number>();
-    const queue = childrenMap.get(nodeId) || [];
+    const queue = [...(childrenMap.get(nodeId) || [])];
     while (queue.length > 0) {
       const childId = queue.shift()!;
       if (!descendants.has(childId)) {
@@ -77,28 +78,39 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
       descendants.forEach(d => hiddenNodes.add(d));
     });
 
-    const visibleNodes = data.nodes.filter(node => !hiddenNodes.has(node.id));
+    // Deep copy nodes to ensure react-force-graph detects changes
+    const visibleNodes = data.nodes
+      .filter(node => !hiddenNodes.has(node.id))
+      .map(node => ({ ...node }));
+
     const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
 
-    const visibleLinks = data.links.filter(link => {
-      const sourceId = typeof link.source === 'number' ? link.source : link.source.id;
-      const targetId = typeof link.target === 'number' ? link.target : link.target.id;
-      return visibleNodeIds.has(sourceId) && visibleNodeIds.has(targetId);
-    });
+    // Deep copy links with numeric IDs
+    const visibleLinks = data.links
+      .filter(link => {
+        const sourceId = typeof link.source === 'number' ? link.source : link.source.id;
+        const targetId = typeof link.target === 'number' ? link.target : link.target.id;
+        return visibleNodeIds.has(sourceId) && visibleNodeIds.has(targetId);
+      })
+      .map(link => ({
+        source: typeof link.source === 'number' ? link.source : link.source.id,
+        target: typeof link.target === 'number' ? link.target : link.target.id,
+      }));
 
     return { nodes: visibleNodes, links: visibleLinks };
   }, [data, collapsedNodes, getDescendants]);
 
-  // Initialize collapsed state - collapse level 2+ nodes by default
+  // Initialize collapsed state - collapse level 1+ nodes with children by default
   useEffect(() => {
     const toCollapse = new Set<number>();
     data.nodes.forEach(node => {
-      if ((node.level ?? 0) >= 2 && node.referrals_count > 0) {
+      const hasChildren = (childrenMap.get(node.id)?.length ?? 0) > 0;
+      if ((node.level ?? 0) >= 1 && hasChildren) {
         toCollapse.add(node.id);
       }
     });
     setCollapsedNodes(toCollapse);
-  }, [data.nodes]);
+  }, [data.nodes, childrenMap]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -141,20 +153,20 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
     const fg = graphRef.current;
 
     fg.d3Force('charge', d3.forceManyBody()
-      .strength(-200)
-      .distanceMax(500)
+      .strength(-400)
+      .distanceMax(600)
     );
 
     fg.d3Force('collide', d3.forceCollide()
-      .radius((node: any) => getNodeSize(node) + 20)
-      .strength(0.8)
+      .radius((node: any) => getNodeSize(node) + 35)
+      .strength(1)
     );
 
     fg.d3Force('link')
-      ?.distance(100)
-      .strength(0.5);
+      ?.distance(120)
+      .strength(0.6);
 
-  }, [filteredData]);
+  }, [filteredData, graphKey]);
 
   const getNodeColor = (node: Node) => {
     if (node.type === 'me') return '#FF1053';
@@ -189,6 +201,9 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
       }
       return next;
     });
+    // Force graph re-render with new key
+    setGraphKey(k => k + 1);
+    setIsLayoutReady(false);
   }, []);
 
   const handleNodeClick = useCallback((node: any) => {
@@ -197,10 +212,6 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
 
     if (canCollapse) {
       toggleCollapse(node.id);
-      // Re-fit after toggling
-      setTimeout(() => {
-        graphRef.current?.zoomToFit(400, 50);
-      }, 100);
     } else {
       setSelectedNode(node as Node);
       if (graphRef.current) {
@@ -222,18 +233,19 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
         </div>
       )}
       <ForceGraph2D
+        key={graphKey}
         ref={graphRef}
         width={dimensions.width}
         height={dimensions.height}
         graphData={filteredData}
         dagMode="td"
-        dagLevelDistance={130}
+        dagLevelDistance={150}
         d3AlphaDecay={0.02}
-        d3VelocityDecay={0.4}
-        cooldownTicks={200}
-        warmupTicks={100}
+        d3VelocityDecay={0.3}
+        cooldownTicks={250}
+        warmupTicks={150}
         onEngineStop={() => {
-          graphRef.current?.zoomToFit(400, 50);
+          graphRef.current?.zoomToFit(400, 80);
           setIsLayoutReady(true);
         }}
         nodeLabel={() => ''}
@@ -440,9 +452,10 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
             onClick={() => {
                 // Expand all
                 setCollapsedNodes(new Set());
-                setTimeout(() => graphRef.current?.zoomToFit(400, 50), 100);
+                setGraphKey(k => k + 1);
+                setIsLayoutReady(false);
             }}
-            className="bg-white border-2 border-black p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
+            className="bg-[#15F287] border-2 border-black p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
             title="Expandir todo"
         >
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -454,18 +467,20 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
         </button>
         <button
             onClick={() => {
-                // Collapse level 2+
+                // Collapse level 1+ nodes with children
                 const toCollapse = new Set<number>();
                 data.nodes.forEach(node => {
-                  if ((node.level ?? 0) >= 2 && node.referrals_count > 0) {
+                  const hasChildren = (childrenMap.get(node.id)?.length ?? 0) > 0;
+                  if ((node.level ?? 0) >= 1 && hasChildren) {
                     toCollapse.add(node.id);
                   }
                 });
                 setCollapsedNodes(toCollapse);
-                setTimeout(() => graphRef.current?.zoomToFit(400, 50), 100);
+                setGraphKey(k => k + 1);
+                setIsLayoutReady(false);
             }}
-            className="bg-white border-2 border-black p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
-            title="Colapsar nivel 2+"
+            className="bg-[#FF1053] text-white border-2 border-black p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
+            title="Colapsar todo"
         >
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="4 14 10 14 10 20"></polyline>
