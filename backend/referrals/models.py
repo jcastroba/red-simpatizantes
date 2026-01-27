@@ -121,3 +121,19 @@ class Sympathizer(models.Model):
     def is_root(self):
         """Check if this sympathizer is a root (no referrer)."""
         return self.referrer is None
+
+
+class LevelLabel(models.Model):
+    owner = models.ForeignKey(Sympathizer, on_delete=models.CASCADE, related_name='level_labels')
+    level = models.PositiveIntegerField()
+    name = models.CharField(max_length=100)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['level']
+        unique_together = ('owner', 'level')
+        verbose_name = 'Nombre de Nivel'
+        verbose_name_plural = 'Nombres de Niveles'
+
+    def __str__(self):
+        return f"{self.owner.full_name} - Nivel {self.level}: {self.name}"

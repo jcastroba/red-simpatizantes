@@ -148,6 +148,10 @@ const Dashboard = ({ token, onLogout }: DashboardProps) => {
   const [copied, setCopied] = useState(false);
   const [selectedReferral, setSelectedReferral] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [levelLabels, setLevelLabels] = useState<Record<string, string>>({});
+  const [levelLabelDrafts, setLevelLabelDrafts] = useState<Record<string, string>>({});
+  const [editingLevelLabels, setEditingLevelLabels] = useState(false);
+  const [savingLevelLabels, setSavingLevelLabels] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -161,6 +165,17 @@ const Dashboard = ({ token, onLogout }: DashboardProps) => {
             headers: { Authorization: `Token ${token}` }
         });
         setNetworkData(networkResponse.data);
+
+        try {
+            const levelLabelResponse = await axios.get(`${API_URL}/auth/level-labels/`, {
+                headers: { Authorization: `Token ${token}` }
+            });
+            const labels = levelLabelResponse.data?.level_labels || {};
+            setLevelLabels(labels);
+            setLevelLabelDrafts(labels);
+        } catch (labelError) {
+            console.error('Error fetching level labels', labelError);
+        }
 
       } catch (error: any) {
         console.error('Error fetching dashboard data', error);
@@ -188,6 +203,10 @@ const Dashboard = ({ token, onLogout }: DashboardProps) => {
 
     return { levels, total };
   }, [networkData]);
+
+  const orderedLevels = useMemo(() => {
+    return Object.keys(levelStats.levels).sort((a, b) => Number(a) - Number(b));
+  }, [levelStats.levels]);
 
   // Calcular total recursivo de referidos
   const calculateTotalReferrals = (referrals: Referral[]): number => {
@@ -316,14 +335,94 @@ const Dashboard = ({ token, onLogout }: DashboardProps) => {
             <div className="md:col-span-1">
                 <Y2KWindow title="Resumen por Nivel" className="h-full" isStatic={true}>
                     <div className="space-y-2">
-                        {Object.keys(levelStats.levels).length > 0 ? (
+                        {orderedLevels.length > 0 ? (
                             <>
-                                {Object.entries(levelStats.levels)
-                                    .sort(([a], [b]) => Number(a) - Number(b))
-                                    .map(([level, count]) => (
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[10px] sm:text-xs font-bold uppercase text-black/60">Nombres de niveles</p>
+                                    {!editingLevelLabels ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const drafts: Record<string, string> = {};
+                                                orderedLevels.forEach((level) => {
+                                                    drafts[level] = levelLabels[level] || '';
+                                                });
+                                                setLevelLabelDrafts(drafts);
+                                                setEditingLevelLabels(true);
+                                            }}
+                                            className="text-[10px] sm:text-xs font-bold text-primary hover:underline uppercase"
+                                        >
+                                            Editar
+                                        </button>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                disabled={savingLevelLabels}
+                                                onClick={async () => {
+                                                    setSavingLevelLabels(true);
+                                                    try {
+                                                        const payload: Record<string, string> = {};
+                                                        orderedLevels.forEach((level) => {
+                                                            payload[level] = (levelLabelDrafts[level] || '').trim();
+                                                        });
+                                                        const response = await axios.put(
+                                                            `${API_URL}/auth/level-labels/`,
+                                                            { level_labels: payload },
+                                                            { headers: { Authorization: `Token ${token}` } }
+                                                        );
+                                                        const updated = response.data?.level_labels || {};
+                                                        setLevelLabels(updated);
+                                                        setLevelLabelDrafts(updated);
+                                                        setEditingLevelLabels(false);
+                                                    } catch (error: any) {
+                                                        console.error('Error saving level labels', error);
+                                                        alert(`Error guardando nombres: ${error.response?.status} - ${JSON.stringify(error.response?.data)}`);
+                                                    } finally {
+                                                        setSavingLevelLabels(false);
+                                                    }
+                                                }}
+                                                className="text-[10px] sm:text-xs font-bold text-white bg-primary px-2 py-1 uppercase disabled:opacity-60"
+                                            >
+                                                Guardar
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={savingLevelLabels}
+                                                onClick={() => {
+                                                    setLevelLabelDrafts(levelLabels);
+                                                    setEditingLevelLabels(false);
+                                                }}
+                                                className="text-[10px] sm:text-xs font-bold text-black/60 hover:underline uppercase disabled:opacity-60"
+                                            >
+                                                Cancelar
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                {editingLevelLabels && (
+                                    <p className="text-[10px] text-black/40 italic">Deja vacÃ­o para usar "Nivel X".</p>
+                                )}
+                                {orderedLevels.map((level) => (
                                     <div key={level} className="flex justify-between items-center bg-black/5 p-2 border-l-4 border-primary">
-                                        <span className="text-xs sm:text-sm font-bold text-black">Nivel {level}</span>
-                                        <span className="text-sm sm:text-base font-black text-primary">{count}</span>
+                                        {editingLevelLabels ? (
+                                            <input
+                                                type="text"
+                                                value={levelLabelDrafts[level] || ''}
+                                                onChange={(e) => {
+                                                    const next = { ...levelLabelDrafts };
+                                                    next[level] = e.target.value;
+                                                    setLevelLabelDrafts(next);
+                                                }}
+                                                placeholder={`Nivel ${level}`}
+                                                className="text-xs sm:text-sm font-bold text-black bg-white border border-black/20 px-2 py-1 w-40"
+                                            />
+                                        ) : (
+                                            <span className="text-xs sm:text-sm font-bold text-black">
+                                                {levelLabels[level] ? levelLabels[level] : `Nivel ${level}`}
+                                            </span>
+                                        )}
+                                        <span className="text-sm sm:text-base font-black text-primary">{levelStats.levels[Number(level)]}</span>
                                     </div>
                                 ))}
                                 <div className="flex justify-between items-center bg-primary/10 p-2 border-2 border-primary mt-3">

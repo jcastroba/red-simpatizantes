@@ -3,6 +3,7 @@ Authentication views for the referrals application.
 Includes rate limiting, structured logging, and optimized queries.
 """
 import logging
+from collections import defaultdict
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
@@ -14,11 +15,10 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.utils import timezone
-from django.db.models import Prefetch
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
 
-from .models import Sympathizer
+from .models import Sympathizer, LevelLabel
 from .services.email import EmailService
 
 logger = logging.getLogger(__name__)
@@ -259,30 +259,33 @@ class DashboardView(APIView):
         try:
             sympathizer = request.user.sympathizer
 
-            # Optimized query with prefetch_related for N+1 prevention
-            direct_referrals = sympathizer.referrals.prefetch_related(
-                Prefetch(
-                    'referrals',
-                    queryset=Sympathizer.objects.order_by('-created_at'),
-                    to_attr='prefetched_sub_referrals'
+            # Build full referral tree with batched queries (all levels)
+            children_map = defaultdict(list)
+            queue = [sympathizer.id]
+            visited = {sympathizer.id}
+
+            while queue:
+                batch_ids = queue
+                queue = []
+                children = Sympathizer.objects.filter(referrer_id__in=batch_ids).only(
+                    'id', 'nombres', 'apellidos', 'cedula', 'email', 'phone', 'created_at', 'referrer_id'
                 )
-            ).order_by('-created_at')
 
-            referrals_data = []
-            for ref in direct_referrals:
-                # Use prefetched data
-                sub_referrals = getattr(ref, 'prefetched_sub_referrals', [])
-                sub_referrals_data = [{
-                    'id': sub.id,
-                    'nombres': sub.nombres,
-                    'apellidos': sub.apellidos,
-                    'cedula': sub.cedula,
-                    'phone': sub.phone,
-                    'email': sub.email,
-                    'created_at': sub.created_at
-                } for sub in sub_referrals]
+                for child in children:
+                    if child.id in visited:
+                        continue
+                    visited.add(child.id)
+                    children_map[child.referrer_id].append(child)
+                    queue.append(child.id)
 
-                referrals_data.append({
+            # Keep newest first per parent
+            for parent_id, child_list in children_map.items():
+                child_list.sort(key=lambda item: item.created_at, reverse=True)
+
+            def serialize_referral(ref):
+                sub_children = children_map.get(ref.id, [])
+                sub_referrals_data = [serialize_referral(sub) for sub in sub_children]
+                return {
                     'id': ref.id,
                     'nombres': ref.nombres,
                     'apellidos': ref.apellidos,
@@ -290,9 +293,11 @@ class DashboardView(APIView):
                     'email': ref.email,
                     'phone': ref.phone,
                     'created_at': ref.created_at,
-                    'referrals_count': len(sub_referrals),
+                    'referrals_count': len(sub_children),
                     'sub_referrals': sub_referrals_data
-                })
+                }
+
+            referrals_data = [serialize_referral(ref) for ref in children_map.get(sympathizer.id, [])]
 
             return Response({
                 'nombres': sympathizer.nombres,
@@ -310,6 +315,79 @@ class DashboardView(APIView):
         except Exception as e:
             logger.error(f"Error in DashboardView: {str(e)}")
             return Response({'error': 'Error al cargar el dashboard'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class LevelLabelView(APIView):
+    """CRUD for per-user level labels."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            sympathizer = request.user.sympathizer
+            labels = LevelLabel.objects.filter(owner=sympathizer).order_by('level')
+            return Response({
+                'level_labels': {str(label.level): label.name for label in labels}
+            })
+        except Sympathizer.DoesNotExist:
+            logger.error(f"Level labels accessed by user without sympathizer: {request.user.username}")
+            return Response(
+                {'error': 'Perfil de simpatizante no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error in LevelLabelView.get: {str(e)}")
+            return Response({'error': 'Error al cargar nombres de niveles'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def put(self, request):
+        try:
+            sympathizer = request.user.sympathizer
+            level_labels = request.data.get('level_labels')
+
+            if not isinstance(level_labels, dict):
+                return Response(
+                    {'error': 'level_labels debe ser un objeto'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            for level_key, name in level_labels.items():
+                try:
+                    level = int(level_key)
+                except (TypeError, ValueError):
+                    return Response(
+                        {'error': f'Nivel invalido: {level_key}'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if level < 1:
+                    return Response(
+                        {'error': 'El nivel debe ser >= 1'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                cleaned_name = (name or '').strip()
+                if not cleaned_name:
+                    LevelLabel.objects.filter(owner=sympathizer, level=level).delete()
+                    continue
+
+                LevelLabel.objects.update_or_create(
+                    owner=sympathizer,
+                    level=level,
+                    defaults={'name': cleaned_name}
+                )
+
+            labels = LevelLabel.objects.filter(owner=sympathizer).order_by('level')
+            return Response({
+                'level_labels': {str(label.level): label.name for label in labels}
+            })
+        except Sympathizer.DoesNotExist:
+            logger.error(f"Level labels updated by user without sympathizer: {request.user.username}")
+            return Response(
+                {'error': 'Perfil de simpatizante no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error in LevelLabelView.put: {str(e)}")
+            return Response({'error': 'Error al guardar nombres de niveles'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class NetworkView(APIView):
