@@ -8,7 +8,7 @@ from .auth_views import (
 from .admin_views import (
     AdminLoginView, AdminNetworkListView, AdminUserListView,
     AdminUserDetailView, AdminToggleLinkView, AdminToggleSuspensionView,
-    AdminExportUsersView
+    AdminExportUsersView, AdminNetworkVisualizationView
 )
 
 router = DefaultRouter()
@@ -38,4 +38,5 @@ urlpatterns = [
     path('admin/users/<int:pk>/', AdminUserDetailView.as_view()),
     path('admin/users/<int:pk>/toggle-link/', AdminToggleLinkView.as_view()),
     path('admin/users/<int:pk>/toggle-suspension/', AdminToggleSuspensionView.as_view()),
+    path('admin/networks/<int:pk>/visualization/', AdminNetworkVisualizationView.as_view()),
 ]

@@ -363,3 +363,79 @@ class AdminExportUsersView(APIView):
 
         logger.info(f"Users exported by admin: {users.count()} records")
         return response
+
+
+class AdminNetworkVisualizationView(APIView):
+    """Get network visualization data for a specific root network."""
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request, pk):
+        try:
+            root = Sympathizer.objects.get(pk=pk, referrer__isnull=True)
+        except Sympathizer.DoesNotExist:
+            return Response({'error': 'Red no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Data structures for layout
+        nodes_dict = {}
+        children_map = {}
+
+        # Helper to create node dict
+        def create_node_data(sympathizer, type_node, level):
+            return {
+                'id': sympathizer.id,
+                'nombres': sympathizer.nombres,
+                'apellidos': sympathizer.apellidos,
+                'cedula': sympathizer.cedula,
+                'telefono': sympathizer.phone,
+                'email': sympathizer.email,
+                'referrals_count': 0,  # Will be updated later
+                'type': type_node,
+                'level': level,
+                'x': 0,
+                'y': 0
+            }
+
+        # Start with root
+        nodes_dict[root.id] = create_node_data(root, 'root', 0)
+        children_map[root.id] = []
+
+        # BFS traversal to build the full network
+        visited = {root.id}
+        queue = [(root, 0)]
+
+        while queue:
+            current, level = queue.pop(0)
+
+            # Get children
+            direct_referrals = current.referrals.only(
+                'id', 'nombres', 'apellidos', 'cedula', 'phone', 'email'
+            ).order_by('id')
+
+            current_children_ids = []
+            for ref in direct_referrals:
+                if ref.id not in visited:
+                    visited.add(ref.id)
+                    nodes_dict[ref.id] = create_node_data(ref, 'referral', level + 1)
+                    children_map[ref.id] = []
+                    current_children_ids.append(ref.id)
+                    queue.append((ref, level + 1))
+
+            children_map[current.id] = current_children_ids
+            # Update referrals count
+            nodes_dict[current.id]['referrals_count'] = len(current_children_ids)
+
+        # Construct Response
+        final_nodes = list(nodes_dict.values())
+        final_links = []
+
+        for parent_id, children_ids in children_map.items():
+            for child_id in children_ids:
+                final_links.append({'source': parent_id, 'target': child_id})
+
+        return Response({
+            'network_name': root.network_name or f"Red de {root.full_name}",
+            'root_name': root.full_name,
+            'total_nodes': len(final_nodes),
+            'nodes': final_nodes,
+            'links': final_links
+        })

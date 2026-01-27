@@ -11,7 +11,7 @@ interface Node {
   telefono: string;
   email: string;
   referrals_count: number;
-  type: 'me' | 'sponsor' | 'referral';
+  type: 'me' | 'sponsor' | 'referral' | 'root';
   level?: number;
   x?: number;
   y?: number;
@@ -170,6 +170,7 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
 
   const getNodeColor = (node: Node) => {
     if (node.type === 'me') return '#FF1053';
+    if (node.type === 'root') return '#FF1053';  // Same as 'me' for admin view
     if (node.type === 'sponsor') return '#119DA4';
 
     if (node.level === 1) return '#FFD700';
@@ -186,7 +187,7 @@ const ReferralNetwork = ({ data }: ReferralNetworkProps) => {
     const baseSize = 22;
     const size = baseSize + Math.sqrt(node.referrals_count || 0) * 4;
 
-    if (node.type === 'me') return Math.max(size, 30);
+    if (node.type === 'me' || node.type === 'root') return Math.max(size, 30);
     if (node.type === 'sponsor') return Math.max(size, 26);
     return size;
   };

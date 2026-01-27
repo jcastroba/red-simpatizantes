@@ -1,10 +1,19 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Y2KWindow from '../Y2KWindow';
+import ReferralNetwork from '../ReferralNetwork';
 import { API_URL } from '../../config';
 
 interface NetworkManagementProps {
   token: string;
+}
+
+interface NetworkVisualizationData {
+  network_name: string;
+  root_name: string;
+  total_nodes: number;
+  nodes: any[];
+  links: any[];
 }
 
 const NetworkManagement = ({ token }: NetworkManagementProps) => {
@@ -22,6 +31,9 @@ const NetworkManagement = ({ token }: NetworkManagementProps) => {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showVisualization, setShowVisualization] = useState(false);
+  const [visualizationData, setVisualizationData] = useState<NetworkVisualizationData | null>(null);
+  const [loadingVisualization, setLoadingVisualization] = useState(false);
 
   const fetchNetworks = async () => {
     try {
@@ -54,6 +66,22 @@ const NetworkManagement = ({ token }: NetworkManagementProps) => {
       fetchNetworks();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al crear la red');
+    }
+  };
+
+  const handleViewNetwork = async (networkId: number) => {
+    setLoadingVisualization(true);
+    try {
+      const response = await axios.get(`${API_URL}/admin/networks/${networkId}/visualization/`, {
+        headers: { Authorization: `Token ${token}` }
+      });
+      setVisualizationData(response.data);
+      setShowVisualization(true);
+    } catch (err) {
+      console.error('Error loading network visualization:', err);
+      setError('Error al cargar la visualización de la red');
+    } finally {
+      setLoadingVisualization(false);
     }
   };
 
@@ -235,10 +263,56 @@ const NetworkManagement = ({ token }: NetworkManagementProps) => {
                     </button>
                 </div>
               </div>
+
+              {/* View Network Button */}
+              <button
+                onClick={() => handleViewNetwork(network.id)}
+                disabled={loadingVisualization}
+                className="w-full mt-3 bg-pearl-aqua text-black font-bold py-2 uppercase hover:brightness-110 text-xs sm:text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <circle cx="12" cy="12" r="4"/>
+                  <line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/>
+                  <line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/>
+                  <line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/>
+                  <line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/>
+                </svg>
+                Ver Red de Nodos
+              </button>
             </div>
           </Y2KWindow>
         ))}
       </div>
+      )}
+
+      {/* Network Visualization Modal */}
+      {showVisualization && visualizationData && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex flex-col">
+          {/* Header */}
+          <div className="bg-primary text-white p-4 flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold uppercase">{visualizationData.network_name}</h2>
+              <p className="text-sm opacity-80">
+                {visualizationData.total_nodes} miembros en la red
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setShowVisualization(false);
+                setVisualizationData(null);
+              }}
+              className="bg-white text-primary font-bold px-4 py-2 uppercase hover:bg-primary hover:text-white hover:border-white border-2 border-transparent transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+
+          {/* Graph Container */}
+          <div className="flex-1 bg-white">
+            <ReferralNetwork data={{ nodes: visualizationData.nodes, links: visualizationData.links }} />
+          </div>
+        </div>
       )}
     </div>
   );
