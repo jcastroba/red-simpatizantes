@@ -16,7 +16,7 @@ resend.api_key = config('RESEND_API_KEY', default='')
 class EmailService:
     """Centralized email service using Resend API."""
 
-    FROM_EMAIL = "Red de Simpatizantes <onboarding@resend.dev>"
+    FROM_EMAIL = "Red de Simpatizantes <redsimpatizantes@towerup.co>"
 
     @classmethod
     def send_email(cls, to: str, subject: str, html_content: str) -> bool:
