@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import SympathizerViewSet, LocationViewSet, HealthCheckView
 from .auth_views import (
     CheckUserView, RequestPasswordSetupView, SetPasswordView,
-    LoginView, DashboardView, NetworkView, ForgotPasswordView, LevelLabelView
+    LoginView, DashboardView, NetworkView, ForgotPasswordView, LevelLabelView,
+    ImportTemplateView, ImportReferralsView
 )
 from .admin_views import (
     AdminLoginView, AdminNetworkListView, AdminUserListView,
@@ -30,6 +31,8 @@ urlpatterns = [
     path('auth/dashboard/', DashboardView.as_view()),
     path('auth/network/', NetworkView.as_view()),
     path('auth/level-labels/', LevelLabelView.as_view()),
+    path('auth/import/template/', ImportTemplateView.as_view()),
+    path('auth/import/', ImportReferralsView.as_view()),
 
     # Admin Routes
     path('admin/login/', AdminLoginView.as_view()),

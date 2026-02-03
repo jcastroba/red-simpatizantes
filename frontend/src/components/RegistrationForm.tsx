@@ -215,9 +215,9 @@ const RegistrationForm = ({ onBack }: { onBack?: () => void }) => {
   };
 
   return (
-    <div className="bg-secondary min-h-screen flex items-center justify-center p-3 sm:p-4 font-sans relative">
+    <div className="bg-secondary min-h-screen overflow-auto py-4 sm:py-8 px-3 sm:px-4 font-sans relative">
 
-      <Y2KWindow title="Registro" onBack={onBack} className="w-full max-w-4xl mx-2 sm:mx-0" contentClassName="p-4 sm:p-5">
+      <Y2KWindow title="Registro" onBack={onBack} className="w-full max-w-4xl mx-auto" contentClassName="p-4 sm:p-5">
             {isReferralValid ? (
             <div className="bg-pearl-aqua/20 border-2 border-pearl-aqua text-black p-3 sm:p-4 mb-4 shadow-sm" role="alert">
                 <p className="font-bold text-lg">¡Bienvenido!</p>
@@ -257,7 +257,7 @@ const RegistrationForm = ({ onBack }: { onBack?: () => void }) => {
                   </div>
                 )}
                 <div className="sm:col-span-2">
-                  <label className="block text-sm sm:text-base font-semibold text-black mb-1">C?dula *</label>
+                  <label className="block text-sm sm:text-base font-semibold text-black mb-1">Cedula *</label>
                   <input
                     type="text"
                     name="cedula"
@@ -269,7 +269,7 @@ const RegistrationForm = ({ onBack }: { onBack?: () => void }) => {
                     onBlur={handleCedulaBlur}
                     required
                     className="block w-full bg-white text-black border-2 border-black/20 focus:border-dark-periwinkle focus:ring-0 text-base p-2.5 sm:p-3 placeholder-gray-500 shadow-inner"
-                    placeholder="Ingrese solo n?meros"
+                    placeholder="Ingrese solo numeros"
                   />
                 </div>
                 <div>
@@ -310,7 +310,7 @@ const RegistrationForm = ({ onBack }: { onBack?: () => void }) => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm sm:text-base font-semibold text-black mb-1">Tel?fono *</label>
+                  <label className="block text-sm sm:text-base font-semibold text-black mb-1">Teléfono *</label>
                   <input
                     type="tel"
                     name="phone"
@@ -320,13 +320,13 @@ const RegistrationForm = ({ onBack }: { onBack?: () => void }) => {
                       setFormData({ ...formData, phone: val });
                     }}
                     required
-                    placeholder="10 d?gitos"
+                    placeholder="10 digitos"
                     className="block w-full bg-white text-black border-2 border-black/20 focus:border-dark-periwinkle focus:ring-0 text-base p-2.5 sm:p-3 shadow-inner"
                   />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-sm sm:text-base font-semibold text-black mb-1">
-                    Correo electr?nico <span className="text-black/50 font-normal">(opcional)</span>
+                    Correo electronico <span className="text-black/50 font-normal">(opcional)</span>
                   </label>
                   <input
                     type="email"

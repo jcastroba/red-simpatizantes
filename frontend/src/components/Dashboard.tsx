@@ -25,11 +25,13 @@ interface Referral {
 const ReferralRow = ({
   referral,
   level = 0,
-  onSelect
+  onSelect,
+  onImport
 }: {
   referral: Referral;
   level?: number;
   onSelect: (ref: Referral) => void;
+  onImport: (ref: Referral) => void;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const hasChildren = referral.sub_referrals && referral.sub_referrals.length > 0;
@@ -64,12 +66,21 @@ const ReferralRow = ({
           </span>
         </td>
         <td className="px-4 py-3">
-          <button
-            onClick={() => onSelect(referral)}
-            className="text-xs font-bold text-primary hover:underline uppercase"
-          >
-            Ver
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onSelect(referral)}
+              className="text-xs font-bold text-primary hover:underline uppercase"
+            >
+              Ver
+            </button>
+            <button
+              onClick={() => onImport(referral)}
+              className="text-xs font-bold text-pearl-aqua hover:underline uppercase"
+              title="Importar referenciados para este usuario"
+            >
+              +Imp
+            </button>
+          </div>
         </td>
       </tr>
       {expanded && hasChildren && referral.sub_referrals?.map((sub, idx) => (
@@ -78,6 +89,7 @@ const ReferralRow = ({
           referral={sub}
           level={level + 1}
           onSelect={onSelect}
+          onImport={onImport}
         />
       ))}
     </>
@@ -88,11 +100,13 @@ const ReferralRow = ({
 const ReferralCard = ({
   referral,
   level = 0,
-  onSelect
+  onSelect,
+  onImport
 }: {
   referral: Referral;
   level?: number;
   onSelect: (ref: Referral) => void;
+  onImport: (ref: Referral) => void;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const hasChildren = referral.sub_referrals && referral.sub_referrals.length > 0;
@@ -119,12 +133,21 @@ const ReferralCard = ({
             {referral.referrals_count} ref.
           </span>
         </div>
-        <button
-          onClick={() => onSelect(referral)}
-          className="w-full text-xs font-bold text-primary bg-white py-2 border border-primary hover:bg-primary hover:text-white transition-colors uppercase"
-        >
-          Ver Detalle
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onSelect(referral)}
+            className="flex-1 text-xs font-bold text-primary bg-white py-2 border border-primary hover:bg-primary hover:text-white transition-colors uppercase"
+          >
+            Ver Detalle
+          </button>
+          <button
+            onClick={() => onImport(referral)}
+            className="px-3 text-xs font-bold text-pearl-aqua bg-white py-2 border border-pearl-aqua hover:bg-pearl-aqua hover:text-black transition-colors uppercase"
+            title="Importar"
+          >
+            +Imp
+          </button>
+        </div>
       </div>
       {expanded && hasChildren && (
         <div className="mt-2 space-y-2">
@@ -134,6 +157,7 @@ const ReferralCard = ({
               referral={sub}
               level={level + 1}
               onSelect={onSelect}
+              onImport={onImport}
             />
           ))}
         </div>
@@ -141,6 +165,14 @@ const ReferralCard = ({
     </div>
   );
 };
+
+interface ImportResult {
+  success: boolean;
+  total_processed: number;
+  imported: number;
+  errors: Array<{ row: number; cedula?: string; error: string }>;
+  created: Array<{ id: number; cedula: string; nombres: string; apellidos: string; referral_code: string }>;
+}
 
 const Dashboard = ({ token, onLogout }: DashboardProps) => {
   const [data, setData] = useState<any>(null);
@@ -152,6 +184,14 @@ const Dashboard = ({ token, onLogout }: DashboardProps) => {
   const [levelLabelDrafts, setLevelLabelDrafts] = useState<Record<string, string>>({});
   const [editingLevelLabels, setEditingLevelLabels] = useState(false);
   const [savingLevelLabels, setSavingLevelLabels] = useState(false);
+
+  // Import states
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importTarget, setImportTarget] = useState<'self' | number>('self');
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importTargetUser, setImportTargetUser] = useState<Referral | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -253,6 +293,111 @@ const Dashboard = ({ token, onLogout }: DashboardProps) => {
 
     return filterRecursive(data.referrals);
   }, [data, searchTerm]);
+
+  // Flatten referrals for dropdown
+  const allNetworkUsers = useMemo(() => {
+    if (!data?.referrals) return [];
+    const users: Referral[] = [];
+    const collectUsers = (refs: Referral[]) => {
+      refs.forEach(ref => {
+        users.push(ref);
+        if (ref.sub_referrals) collectUsers(ref.sub_referrals);
+      });
+    };
+    collectUsers(data.referrals);
+    return users;
+  }, [data]);
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/auth/import/template/`, {
+        headers: { Authorization: `Token ${token}` },
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'plantilla_importacion.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading template', error);
+      alert('Error al descargar la plantilla');
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importFile) {
+      alert('Selecciona un archivo');
+      return;
+    }
+
+    setImporting(true);
+    setImportResult(null);
+
+    const formData = new FormData();
+    formData.append('file', importFile);
+    if (importTarget !== 'self') {
+      formData.append('parent_id', String(importTarget));
+    }
+
+    try {
+      const response = await axios.post(`${API_URL}/auth/import/`, formData, {
+        headers: {
+          Authorization: `Token ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      setImportResult(response.data);
+
+      // Refresh dashboard data if import was successful
+      if (response.data.imported > 0) {
+        const dashResponse = await axios.get(`${API_URL}/auth/dashboard/`, {
+          headers: { Authorization: `Token ${token}` }
+        });
+        setData(dashResponse.data);
+
+        const networkResponse = await axios.get(`${API_URL}/auth/network/`, {
+          headers: { Authorization: `Token ${token}` }
+        });
+        setNetworkData(networkResponse.data);
+      }
+    } catch (error: any) {
+      console.error('Error importing', error);
+      setImportResult({
+        success: false,
+        total_processed: 0,
+        imported: 0,
+        errors: [{ row: 0, error: error.response?.data?.error || 'Error al importar' }],
+        created: []
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const openImportModal = (targetUser?: Referral) => {
+    setImportFile(null);
+    setImportResult(null);
+    if (targetUser) {
+      setImportTarget(targetUser.id);
+      setImportTargetUser(targetUser);
+    } else {
+      setImportTarget('self');
+      setImportTargetUser(null);
+    }
+    setShowImportModal(true);
+  };
+
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    setImportFile(null);
+    setImportResult(null);
+    setImportTarget('self');
+    setImportTargetUser(null);
+  };
 
   if (!data) return <div className="flex justify-center items-center h-screen bg-secondary text-primary font-bold">Cargando...</div>;
 
@@ -401,7 +546,7 @@ const Dashboard = ({ token, onLogout }: DashboardProps) => {
                                     )}
                                 </div>
                                 {editingLevelLabels && (
-                                    <p className="text-[10px] text-black/40 italic">Deja vacÃ­o para usar "Nivel X".</p>
+                                    <p className="text-[10px] text-black/40 italic">Deja vacio para usar "Nivel X".</p>
                                 )}
                                 {orderedLevels.map((level) => (
                                     <div key={level} className="flex justify-between items-center bg-black/5 p-2 border-l-4 border-primary">
@@ -451,14 +596,28 @@ const Dashboard = ({ token, onLogout }: DashboardProps) => {
             {/* Referrals List Card */}
             <div className="md:col-span-3">
                 <Y2KWindow title="Mis Referidos (Expandible)" className="h-full" isStatic={true}>
-                    <div className="mb-3 sm:mb-4">
+                    <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row gap-2">
                         <input
                             type="text"
                             placeholder="Buscar por nombre o cedula..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full p-2 border-2 border-black/10 focus:border-primary outline-none text-xs sm:text-sm"
+                            className="flex-grow p-2 border-2 border-black/10 focus:border-primary outline-none text-xs sm:text-sm"
                         />
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleDownloadTemplate}
+                                className="px-3 py-2 bg-white border-2 border-primary text-primary text-xs font-bold uppercase hover:bg-primary hover:text-white transition-colors whitespace-nowrap"
+                            >
+                                Plantilla
+                            </button>
+                            <button
+                                onClick={() => openImportModal()}
+                                className="px-3 py-2 bg-primary border-2 border-primary text-white text-xs font-bold uppercase hover:bg-primary/80 transition-colors whitespace-nowrap"
+                            >
+                                Importar
+                            </button>
+                        </div>
                     </div>
 
                     <p className="text-xs text-black/60 mb-3">
@@ -474,6 +633,7 @@ const Dashboard = ({ token, onLogout }: DashboardProps) => {
                                         key={index}
                                         referral={ref}
                                         onSelect={setSelectedReferral}
+                                        onImport={openImportModal}
                                     />
                                 ))}
                             </div>
@@ -487,7 +647,7 @@ const Dashboard = ({ token, onLogout }: DashboardProps) => {
                                             <th className="px-4 py-2">Cedula</th>
                                             <th className="px-4 py-2">Telefono</th>
                                             <th className="px-4 py-2 text-center">Referidos</th>
-                                            <th className="px-4 py-2">Accion</th>
+                                            <th className="px-4 py-2">Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -496,6 +656,7 @@ const Dashboard = ({ token, onLogout }: DashboardProps) => {
                                                 key={index}
                                                 referral={ref}
                                                 onSelect={setSelectedReferral}
+                                                onImport={openImportModal}
                                             />
                                         ))}
                                     </tbody>
@@ -571,6 +732,188 @@ const Dashboard = ({ token, onLogout }: DashboardProps) => {
                           <p className="text-xs sm:text-sm text-black/40 italic">Este usuario aun no tiene referidos.</p>
                       )}
                   </div>
+
+                  {/* Import button */}
+                  <div className="border-t-2 border-black/10 pt-3 sm:pt-4">
+                      <button
+                          onClick={() => {
+                              setSelectedReferral(null);
+                              openImportModal(selectedReferral);
+                          }}
+                          className="w-full py-2 bg-pearl-aqua text-black font-bold uppercase text-xs sm:text-sm border-2 border-pearl-aqua hover:bg-pearl-aqua/80 transition-colors"
+                      >
+                          Importar Referenciados para {selectedReferral.nombres}
+                      </button>
+                  </div>
+              </div>
+          </Y2KWindow>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <Y2KWindow
+              title="Importar Referenciados"
+              onClose={closeImportModal}
+              className="max-w-lg w-full max-h-[90vh] overflow-y-auto"
+          >
+              <div className="space-y-4">
+                  {!importResult ? (
+                      <>
+                          {/* Target selection */}
+                          <div className="space-y-2">
+                              <p className="font-bold text-black text-xs sm:text-sm uppercase">Destino de importacion</p>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                      type="radio"
+                                      name="importTarget"
+                                      checked={importTarget === 'self'}
+                                      onChange={() => {
+                                          setImportTarget('self');
+                                          setImportTargetUser(null);
+                                      }}
+                                      className="accent-primary"
+                                  />
+                                  <span className="text-sm">Importar como mis referenciados directos</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                      type="radio"
+                                      name="importTarget"
+                                      checked={importTarget !== 'self'}
+                                      onChange={() => {
+                                          if (allNetworkUsers.length > 0) {
+                                              setImportTarget(allNetworkUsers[0].id);
+                                              setImportTargetUser(allNetworkUsers[0]);
+                                          }
+                                      }}
+                                      className="accent-primary"
+                                  />
+                                  <span className="text-sm">Importar bajo un usuario de mi red</span>
+                              </label>
+                          </div>
+
+                          {/* User selector */}
+                          {importTarget !== 'self' && (
+                              <div className="space-y-2">
+                                  <p className="font-bold text-black/60 text-[10px] sm:text-xs uppercase">Seleccionar usuario</p>
+                                  <select
+                                      value={typeof importTarget === 'number' ? importTarget : ''}
+                                      onChange={(e) => {
+                                          const id = Number(e.target.value);
+                                          setImportTarget(id);
+                                          const user = allNetworkUsers.find(u => u.id === id);
+                                          setImportTargetUser(user || null);
+                                      }}
+                                      className="w-full p-2 border-2 border-black/20 focus:border-primary outline-none text-sm"
+                                  >
+                                      {allNetworkUsers.map(user => (
+                                          <option key={user.id} value={user.id}>
+                                              {user.nombres} {user.apellidos} - {user.cedula}
+                                          </option>
+                                      ))}
+                                  </select>
+                                  {importTargetUser && (
+                                      <p className="text-xs text-black/60">
+                                          Los usuarios importados quedaran como referidos de <span className="font-bold">{importTargetUser.nombres} {importTargetUser.apellidos}</span>
+                                      </p>
+                                  )}
+                              </div>
+                          )}
+
+                          {/* File upload */}
+                          <div className="space-y-2">
+                              <p className="font-bold text-black/60 text-[10px] sm:text-xs uppercase">Archivo Excel</p>
+                              <div className="flex gap-2">
+                                  <input
+                                      type="file"
+                                      accept=".xlsx"
+                                      onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                                      className="flex-1 text-sm file:mr-2 file:py-2 file:px-3 file:border-2 file:border-primary file:bg-white file:text-primary file:font-bold file:uppercase file:text-xs file:cursor-pointer hover:file:bg-primary hover:file:text-white"
+                                  />
+                              </div>
+                              {importFile && (
+                                  <p className="text-xs text-black/60">Archivo seleccionado: {importFile.name}</p>
+                              )}
+                              <button
+                                  onClick={handleDownloadTemplate}
+                                  className="text-xs text-primary hover:underline"
+                              >
+                                  Descargar plantilla de ejemplo
+                              </button>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex gap-2 pt-2">
+                              <button
+                                  onClick={closeImportModal}
+                                  className="flex-1 py-2 bg-white text-black font-bold uppercase text-xs sm:text-sm border-2 border-black/20 hover:bg-black/5 transition-colors"
+                              >
+                                  Cancelar
+                              </button>
+                              <button
+                                  onClick={handleImport}
+                                  disabled={!importFile || importing}
+                                  className="flex-1 py-2 bg-primary text-white font-bold uppercase text-xs sm:text-sm border-2 border-primary hover:bg-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                  {importing ? 'Importando...' : 'Importar'}
+                              </button>
+                          </div>
+                      </>
+                  ) : (
+                      <>
+                          {/* Import results */}
+                          <div className="space-y-4">
+                              <div className={`p-4 border-2 ${importResult.imported > 0 ? 'bg-pearl-aqua/20 border-pearl-aqua' : 'bg-racing-red/20 border-racing-red'}`}>
+                                  <p className="font-bold text-lg">
+                                      {importResult.imported > 0 ? 'Importacion completada' : 'Error en la importacion'}
+                                  </p>
+                                  <p className="text-sm mt-1">
+                                      {importResult.imported} de {importResult.total_processed} usuarios importados
+                                  </p>
+                              </div>
+
+                              {importResult.errors.length > 0 && (
+                                  <div className="space-y-2">
+                                      <p className="font-bold text-black/60 text-xs uppercase">Errores ({importResult.errors.length})</p>
+                                      <div className="bg-racing-red/10 p-2 max-h-40 overflow-y-auto border-2 border-racing-red/20">
+                                          <ul className="space-y-1">
+                                              {importResult.errors.map((err, idx) => (
+                                                  <li key={idx} className="text-xs text-racing-red">
+                                                      Fila {err.row}: {err.error}
+                                                      {err.cedula && ` (Cedula: ${err.cedula})`}
+                                                  </li>
+                                              ))}
+                                          </ul>
+                                      </div>
+                                  </div>
+                              )}
+
+                              {importResult.created.length > 0 && (
+                                  <div className="space-y-2">
+                                      <p className="font-bold text-black/60 text-xs uppercase">Usuarios creados ({importResult.created.length})</p>
+                                      <div className="bg-pearl-aqua/10 p-2 max-h-40 overflow-y-auto border-2 border-pearl-aqua/20">
+                                          <ul className="space-y-1">
+                                              {importResult.created.map((user, idx) => (
+                                                  <li key={idx} className="text-xs text-black">
+                                                      {user.nombres} {user.apellidos} - {user.cedula}
+                                                  </li>
+                                              ))}
+                                          </ul>
+                                      </div>
+                                  </div>
+                              )}
+
+                              <button
+                                  onClick={closeImportModal}
+                                  className="w-full py-2 bg-primary text-white font-bold uppercase text-xs sm:text-sm border-2 border-primary hover:bg-primary/80 transition-colors"
+                              >
+                                  Cerrar
+                              </button>
+                          </div>
+                      </>
+                  )}
               </div>
           </Y2KWindow>
         </div>
